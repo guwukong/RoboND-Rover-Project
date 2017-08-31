@@ -16,6 +16,7 @@ import json
 import pickle
 import matplotlib.image as mpimg
 import time
+import collections
 
 # Import functions for perception and decision making
 from perception import perception_step
@@ -41,6 +42,7 @@ class RoverState():
         self.start_time = None # To record the start time of navigation
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
+        self.time_random_check = None
         self.pos = None # Current position (x, y)
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
@@ -53,7 +55,7 @@ class RoverState():
         self.nav_dists = None # Distances of navigable terrain pixels
         self.ground_truth = ground_truth_3d # Ground truth worldmap
         self.mode = 'forward' # Current mode (can be forward or stop)
-        self.throttle_set = 0.2 # Throttle setting when accelerating
+        self.throttle_set = 0.5 # Throttle setting when accelerating
         self.brake_set = 10 # Brake setting when braking
         # The stop_forward and go_forward fields below represent total count
         # of navigable terrain pixels.  This is a very crude form of knowing
@@ -77,6 +79,12 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        self.started = False # Recording state
+        self.isStuck = False
+
+        self.isPickUpMode = False
+        self.last_ten_positions = collections.deque(maxlen=50)
+
 # Initialize our rover
 Rover = RoverState()
 

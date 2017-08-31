@@ -10,22 +10,32 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     color_select[select_idx] = 1
     return color_select
 
-
-def color_thresh_rock(img, hsv_thresh_lower=(20, 100, 100), hsv_thresh_upper=(30, 255, 255)):
+def color_thresh_obstacle(img, rgb_thresh=(160, 160, 160)):
+    # Create an array of zeros same xy size as img, but single channel
     color_select = np.zeros_like(img[:,:,0])
 
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    color_select += 1
+    # Require that each pixel be above all three threshold values in RGB
+    # above_thresh will now contain a boolean array with "True"
+    # where threshold was met
+    thresh =      (img[:,:,0] > rgb_thresh[0]) \
+                & (img[:,:,1] > rgb_thresh[1]) \
+                & (img[:,:,2] > rgb_thresh[2])
+    # Index the array of zeros with the boolean array and set to 1
 
-    #modify the upper and lower bounds of the filter
-    #to alter the filter Tektron3000. BGR
+    color_select[thresh] = 0
+
+    # Return the binary image
+    return color_select
+
+def color_thresh_rock(img, hsv_thresh_lower=(120, 100, 0), hsv_thresh_upper=(200, 200, 20)):
+    hsv_thresh_lower=(120, 100, 0)
+    hsv_thresh_upper=(200, 200, 20)
     lower_gold = np.array([hsv_thresh_lower[0], hsv_thresh_lower[1], hsv_thresh_lower[2]])
     upper_gold = np.array([hsv_thresh_upper[0], hsv_thresh_upper[1], hsv_thresh_upper[2]])
 
-    mask = cv2.inRange(hsv, lower_gold, upper_gold)
-    res = cv2.bitwise_and(img,img, mask= mask)
-    color_select[mask] = 1
-
-    return color_select
+    mask = cv2.inRange(img, lower_gold, upper_gold)
+    return mask
 
 # Define a function to convert from image coords to rover coords
 def rover_coords(binary_img):
@@ -68,7 +78,7 @@ def translate_pix(xpix_rot, ypix_rot, xpos, ypos, scale):
 
 # Define a function to apply rotation and translation (and clipping)
 # Once you define the two functions above this function should work
-def pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale):
+def pixel_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale):
     # Apply rotation
     xpix_rot, ypix_rot = rotate_pix(xpix, ypix, yaw)
     # Apply translation
@@ -104,9 +114,7 @@ def perception_step(Rover):
     # this is just a rough guess, feel free to change it!
     bottom_offset = 5
 
-    # source = np.float32([[ 14, 141], [300 ,141 ], [196,97 ], [117 ,97 ] ])
     source = np.float32([[ 13, 140], [302 ,140 ], [202,96 ], [119 ,96 ] ])
-    # source = np.float32([[14, 140], [301 ,140],[200, 96], [118, 96]])
     destination = np.float32([[image.shape[1]/2 - dest_size, image.shape[0] - bottom_offset],
                       [image.shape[1]/2 + dest_size, image.shape[0] - bottom_offset],
                       [image.shape[1]/2 + dest_size, image.shape[0] - 2*dest_size - bottom_offset],
@@ -117,9 +125,9 @@ def perception_step(Rover):
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     rgb_threshold=(170, 170, 170)
 
-    threshed = color_thresh(warped,rgb_threshold, False)
+    threshed = color_thresh(warped,rgb_threshold)
     threshedRock = color_thresh_rock(warped)
-    threshedObs = color_thresh(warped, rgb_threshold)
+    threshedObs = color_thresh_obstacle(warped, rgb_threshold)
 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
     Rover.vision_image[:,:,0] = threshedObs
@@ -133,17 +141,17 @@ def perception_step(Rover):
     # 6) Convert rover-centric pixel values to world coordinates
     scale = 10
     # Get navigable pixel positions in world coords
-    obstacle_x_world, obstacle_y_world = pix_to_world(xpixObs, ypixObs, dataXpos,
+    obstacle_x_world, obstacle_y_world = pixel_to_world(xpixObs, ypixObs, dataXpos,
                                     dataYpos, dataYaw,
                                     Rover.worldmap.shape[0], scale)
-    rock_x_world, rock_y_world = pix_to_world(xpixRock, ypixRock, dataXpos,
+    rock_x_world, rock_y_world = pixel_to_world(xpixRock, ypixRock, dataXpos,
                                     dataYpos, dataYaw,
                                     Rover.worldmap.shape[0], scale)
-    navigable_x_world, navigable_y_world = pix_to_world(xpix, ypix, dataXpos,
+    navigable_x_world, navigable_y_world = pixel_to_world(xpix, ypix, dataXpos,
                                     dataYpos, dataYaw,
                                     Rover.worldmap.shape[0], scale)
     # 7) Update Rover worldmap (to be displayed on right side of screen)
-    if (Rover.pitch < 0.5) and (Rover.roll < 350):
+    if (Rover.pitch < 0.5) and (Rover.roll < 300):
         Rover.worldmap[obstacle_y_world, obstacle_x_world, 0] += 1
         Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
         Rover.worldmap[navigable_y_world, navigable_x_world, 2] += 1
