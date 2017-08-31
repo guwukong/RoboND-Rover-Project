@@ -16,7 +16,7 @@ def decision_step(Rover):
     Rover.last_ten_positions.append(Rover.pos)
     if(len(Rover.last_ten_positions) == 50) :
         Rover.isStuck = all(abs(x[0] - Rover.last_ten_positions[0][0]) <= 0.1 and abs(x[1] - Rover.last_ten_positions[0][1]) <= 0.1 for x in Rover.last_ten_positions)
-        
+
     if not Rover.time_random_check:
         Rover.time_random_check = time()
         Rover.current_position = []
@@ -70,10 +70,13 @@ def decision_step(Rover):
                 else: # Else coast
                     Rover.throttle = 0
                 Rover.brake = 0
+                Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -1*np.std(Rover.nav_angles * 180/np.pi), 1*np.std(Rover.nav_angles * 180/np.pi))
+
                 if Rover.isStuck:
                     Rover.throttle = -10
+                    Rover.steer = np.random.normal(0.0, 1.0, 1)
+                    Rover.steer = np.mean(Rover.nav_angles * 180/np.pi) + 6 * np.std(Rover.nav_angles * 180/np.pi)
                 # Set steering to average angle clipped to the range +/- 15
-                Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -1*np.std(Rover.nav_angles * 180/np.pi), 1*np.std(Rover.nav_angles * 180/np.pi))
             # If there's a lack of navigable terrain pixels then go to 'stop' mode
             elif len(Rover.nav_angles) < Rover.stop_forward:
                     # Set mode to "stop" and hit the brakes!
